@@ -2,7 +2,6 @@
 extern crate core;
 
 use std::num::ParseIntError;
-use std::rc::Rc;
 use std::str::FromStr;
 use surf::{Client, Config};
 use surf::http::headers::HeaderValue;
@@ -19,21 +18,21 @@ trait Day {
 pub trait DayImpl {
     type Input<'a>;
     type Output;
-    fn deserialize_input<'a>(&self, input: &'a str) -> Result<Self::Input<'a>, DeserializationError>;
+    fn deserialize_input<'a>(&self, input: &'a str) -> Self::Input<'a>;
     fn serialize_output(&self, output: Self::Output) -> String;
-    fn solve_first(&self, input: Self::Input) -> Self::Output;
-    fn solve_second(&self, input: Self::Input) -> Self::Output;
+    fn solve_first(&self, input: Self::Input<'_>) -> Self::Output;
+    fn solve_second(&self, input: Self::Input<'_>) -> Self::Output;
 }
 
 impl<T> Day for T where T: DayImpl {
-    fn solve(&self, input: String, part: DayPart) -> Result<String, DeserializationError> {
+    fn solve(&self, input: String, part: DayPart) -> String {
         let solver = match part {
             DayPart::FIRST => DayImpl::solve_first,
             DayPart::SECOND => DayImpl::solve_second,
         };
-        let input = self.deserialize_input(&input)?;
+        let input = self.deserialize_input(&input);
         let output = solver.call((self, input));
-        Ok(self.serialize_output(output))
+        self.serialize_output(output)
     }
 }
 
@@ -53,7 +52,7 @@ impl AocAccount {
     pub fn new(token: &str) -> surf::Result<Self> {
         Ok(AocAccount {
             client: Config::new()
-                .add_header("Cookie", HeaderValue::from_str(&format!("session={token}")))?
+                .add_header("Cookie", HeaderValue::from_str(&format!("session={token}"))?)?
                 .try_into()?
         })
     }
@@ -105,6 +104,6 @@ impl AocYear {
         if day == 0 || day > 25 { return Err(Error::InvalidDay) }
         let input = self.get_input_string(day).await
             .map_err(|err| Error::FailedToRequestInput(err))?;
-        self.days[day-1].solve(input, part)
+        self.days[day as usize - 1].solve(input, part)
     }
 }
